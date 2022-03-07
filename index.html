@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
+		<title>Minecraft UUID Converter</title>
+		<link rel="stylesheet" href="style.css?v=6">
+		<script defer src="convert.js?v=7"></script>
+		<script>
+			if (!('setBigUint64' in DataView.prototype)) {
+				alert('This browser does not support writing and reading 64-bit integers, which is required by the converter. Try updating your browser.')
+			}
+		</script>
+	</head>
+	<body>
+		<div class="content">
+      <div>
+        <input type="range" id="day-range" min="0" max="365">
+      </div>
+      <div>
+        <label>Day <input type="number" id="day-input" min="0" max="365" step="1"></label>
+      </div>
+      <h3>
+        <div id="date-out"></div>
+        <div>
+          <span id="weeks-out"></span>:
+        </div>
+      </h3>
+      <div id="diam-out" class="metric">
+        Diameter: <span class="amount"></span>
+        <div class="fact">
+          (<span class="fact-name"></span>: <span class="fact-size"></span>)
+        </div>
+      </div>
+      <div id="vol-out" class="metric">
+        Volume: <span class="amount"></span>
+      </div>
+      <div id="mass-out" class="metric">
+        Mass: <span class="amount"></span>
+        <div class="fact">
+          (<span class="fact-name"></span>: <span class="fact-size"></span>)
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
