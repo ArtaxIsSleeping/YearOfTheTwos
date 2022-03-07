@@ -7,14 +7,14 @@ const dateOut = document.getElementById('date-out');
 const weeksOut = document.getElementById('weeks-out');
 
 const numFormatRules = [
-	{ under: 10, fractionDigits: 3 },
-	{ under: 1000, fractionDigits: 2 },
-	{ under: Infinity, fractionDigits: 0 },
+  { under: 10, fractionDigits: 3 },
+  { under: 1000, fractionDigits: 2 },
+  { under: Infinity, fractionDigits: 0 },
 ];
 
 const illions = [
-	{ scale: 1e6, name: 'million' },
-	{ scale: 1e12, name: 'trillion' },
+  { scale: 1e6, name: 'million' },
+  { scale: 1e12, name: 'trillion' },
   { scale: 1e18, name: 'quintillion' },
   { scale: 1e21, name: 'sextillion' },
   { scale: 1e27, name: 'octillion' },
@@ -24,7 +24,7 @@ const illions = [
 ];
 
 class MetricDisplay {
-	constructor(baseId, {units, facts}) {
+  constructor(baseId, {units, facts}) {
     const baseEl = document.getElementById(baseId);
 
     this.amountOut = baseEl.querySelector('.amount');
@@ -88,6 +88,7 @@ const diamDisplay = new MetricDisplay('diam-out', {
     { scale: 48, name: 'Height of the Colosseum', size: '48 meters' },
     { scale: 189, name: 'Width of the Colosseum', size: '189 meters' },
     { scale: 324, name: 'Height of the Eiffel Tower', size: '324 meters' },
+    { scale: 2.737e3, name: 'Length of the Golden Gate Bridge', size: '2.737 kilometers' },
     { scale: 8849, name: 'Elevation at the top of Mount Everest', size: '8.8 kilometers' },
     { scale: 240e3, name: 'Widest part of the English Channel', size: '240 kilometers' },
     { scale: 3474.8e3, name: 'Diameter of the moon', size: '3,474.8 kilometers' },
