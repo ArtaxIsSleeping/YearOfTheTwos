@@ -6,25 +6,58 @@ const dayInput = document.getElementById('day-input');
 const dateOut = document.getElementById('date-out');
 const weeksOut = document.getElementById('weeks-out');
 
-const numFormatRules = [
+const standardNumFormatRules = [
   { under: 10, fractionDigits: 3 },
   { under: 1000, fractionDigits: 2 },
   { under: Infinity, fractionDigits: 0 },
 ];
+const standardNumFormatGetter = ua => {
+  const rules = findFirst(standardNumFormatRules, r => ua < r.under);
+  return {
+    minimumFractionDigits: rules.fractionDigits,
+    maximumFractionDigits: rules.fractionDigits,
+  };
+};
 
 const illions = [
-  { scale: 1e6, name: 'million' },
-  { scale: 1e12, name: 'trillion' },
-  { scale: 1e18, name: 'quintillion' },
-  { scale: 1e21, name: 'sextillion' },
-  { scale: 1e27, name: 'octillion' },
-  { scale: 1e33, name: 'decillion' },
-  { scale: 1e39, name: 'duodecillion' },
-  { scale: 1e45, name: 'quattuordecillion' },
+  { solo: 'm', ones: 'un', tens: 'dec' },
+  { solo: 'b', ones: 'duo', tens: 'vigint' },
+  { solo: 'tr', ones: 'tre', tens: 'trigint' },
+  { solo: 'quadr', ones: 'quattuor', tens: 'quadragint' },
+  { solo: 'quint', firstOnes: 'quin', ones: 'quinqua', tens: 'quinquagint' },
+  { solo: 'sext', firstOnes: 'sex', ones: 'ses', tens: 'sexagint' },
+  { solo: 'sept', ones: 'septen', tens: 'septuagint' },
+  { solo: 'oct', ones: 'octo', tens: 'octogint' },
+  { solo: 'non', ones: 'novem', tens: 'nonagint' },
 ];
+function getIllion(amount) {
+  const orders = Math.floor(Math.log10(amount) / 3);
+  if (orders <= 1) return null;
+  
+  let name = 'illion';
+  const latinNumber = orders - 1;
+  if (latinNumber >= 10) {
+    const tensIndex = Math.floor(latinNumber / 10) - 1;
+    const onesIndex = (latinNumber % 10) - 1;
+    name = illions[tensIndex].tens + name;
+    if (onesIndex >= 0) {
+      const onesIllion = illions[onesIndex];
+      const onesName = (tensIndex === 0 ? onesIllion.firstOnes : null) || onesIllion.ones;
+      name = onesName + name;
+    }
+  } else {
+    const onesIndex = (latinNumber % 10) - 1;
+    name = illions[onesIndex].solo + name;
+  }
+  
+  // Parsing here is actually more precise than pow
+  const scale = parseFloat('1e' + (orders * 3));
+  
+  return { name, scale };
+}
 
 class MetricDisplay {
-  constructor(baseId, {units, facts}) {
+  constructor(baseId, {units, extraUnits=[], facts=[]}) {
     const baseEl = document.getElementById(baseId);
 
     this.amountOut = baseEl.querySelector('.amount');
@@ -32,37 +65,51 @@ class MetricDisplay {
     this.factSizeOut = baseEl.querySelector('.fact-size');
 
     this.units = units;
+    this.extraUnits = extraUnits;
     this.facts = facts;
   }
-
-  display(amount) {
-    const unit = findLast(this.units, u => amount / u.scale >= 1, this.units[0]);
+  
+  formatWithUnits(amount, units, defaultUnit, numFormatGetter) {
+    const unit = findLast(units, u => amount / u.scale >= 1, defaultUnit);
+    if (!unit) return null;
+    
     let unitAmount = amount / unit.scale;
     let unitName = unit.name;
-    const illion = findLast(illions, i => unitAmount > i.scale);
+    
+    const illion = getIllion(unitAmount);
     if (illion) {
       unitAmount /= illion.scale;
       unitName = illion.name + ' ' + unitName;
     }
-    const numRules = findFirst(numFormatRules, r => unitAmount < r.under);
-    this.amountOut.innerText = `${unitAmount.toLocaleString([], {
-      minimumFractionDigits: numRules.fractionDigits,
-      maximumFractionDigits: numRules.fractionDigits,
-    })} ${unitName}`;
+    
+    const numFormat = numFormatGetter(unitAmount);
+    return `${unitAmount.toLocaleString([], numFormat)} ${unitName}`;
+  }
+  
+  formatAmount(amount, numFormatGetter) {
+    const amountFormatted = this.formatWithUnits(amount, this.units, this.units[0], numFormatGetter);
+    const extraAmountFormatted = this.formatWithUnits(amount, this.extraUnits, null, numFormatGetter);
+    if (extraAmountFormatted) {
+      return `${amountFormatted} (${extraAmountFormatted})`;
+    } else {
+      return amountFormatted;
+    }
+  }
 
-    if (this.facts) {
-      const fact = findMin(this.facts, f => Math.abs(amount - f.scale));
+  display(amount) {
+    this.amountOut.innerText = this.formatAmount(amount, standardNumFormatGetter);
+    const fact = findMin(this.facts, f => Math.abs(amount - f.scale));
+    if (fact) {
       this.factNameOut.innerText = fact.name;
-      this.factSizeOut.innerText = fact.size;
+      this.factSizeOut.innerText = this.formatAmount(fact.scale, () => ({
+        minimumSignificantDigits: fact.sigFigs,
+        maximumSignificantDigits: fact.sigFigs,
+      }));
     }
   }
 }
 
-const AU = 149597870700;
 const LY = 9460730472580800;
-const PC = 3.0856775814913673e16;
-
-const SM = 1.98892e33;
 
 const diamDisplay = new MetricDisplay('diam-out', {
   units: [
@@ -71,51 +118,42 @@ const diamDisplay = new MetricDisplay('diam-out', {
     { scale: 1e-2, name: 'centimeters' },
     { scale: 1e+0, name: 'meters' },
     { scale: 1e+3, name: 'kilometers' },
-    { scale: AU, name: 'astronomical units' },
+  ],
+  extraUnits: [
     { scale: LY, name: 'light years' },
-    // { scale: PC, name: 'parsecs' },
-    { scale: 1e6*PC, name: 'megaparsecs' },
-    { scale: 1e9*PC, name: 'gigaparsecs' },
-    { scale: 1e12*PC, name: 'teraparsecs' },
-    { scale: 1e15*PC, name: 'petaparsecs' },
   ],
   facts: [
-    { scale: 100e-6, name: 'Width of a human hair', size: 'about 70 microns' },
-    { scale: 760e-6, name: 'Thickness of a credit card', size: 'about 760 microns' },
-    { scale: 1.4e-3, name: 'Width of a thumbnail', size: 'about 1.4 centimeters' },
-    { scale: 42.75e-3, name: 'Width of a full size keyboard', size: 'about 42.75 centimeters' },
-    { scale: 1.75, name: 'Height of Michael Jackson', size: '1.75 meters' },
-    { scale: 48, name: 'Height of the Colosseum', size: '48 meters' },
-    { scale: 189, name: 'Width of the Colosseum', size: '189 meters' },
-    { scale: 324, name: 'Height of the Eiffel Tower', size: '324 meters' },
-    { scale: 2.737e3, name: 'Length of the Golden Gate Bridge', size: '2.737 kilometers' },
-    { scale: 8849, name: 'Elevation at the top of Mount Everest', size: '8.8 kilometers' },
-    { scale: 240e3, name: 'Widest part of the English Channel', size: '240 kilometers' },
-    { scale: 3474.8e3, name: 'Diameter of the moon', size: '3,474.8 kilometers' },
-    { scale: 12742e3, name: 'Diameter of the Earth', size: '12,742 kilometers' },
-    { scale: 384400e3, name: 'Distance from the Earth to the moon', size: '384,400 kilometers' },
-    { scale: 1.3927e9, name: 'Diameter of the sun', size: '1.3927 million kilometers' },
-    { scale: AU, name: 'Distance from the Earth to the sun', size: '1 astronomical unit' },
-    { scale: 1922*AU, name: 'Diameter of the solar system', size: '1,922 astronomical units' },
-    { scale: 4.246*LY, name: 'Distance to Proxima Centauri', size: '4.246 light years' },
-    { scale: 105700*LY, name: 'Diameter of the Milky Way', size: '105,700 light years' },
-    { scale: 2.9e6*LY, name: 'Distance to the Andromeda Galaxy', size: '2.9 million light years' },
-    { scale: 16.5e6*PC, name: 'Distance to the Virgo Cluster', size: '16.5 megaparsecs' },
-    { scale: 28.5e9*PC, name: 'Diameter of the observable universe', size: '28.5 gigaparsecs' },
-  ]
+    { scale: 70e-6, name: 'Width of a human hair', sigFigs: 1 },
+    { scale: 760e-6, name: 'Thickness of a credit card', sigFigs: 2 },
+    { scale: 1.4e-3, name: 'Width of a thumbnail', sigFigs: 2 },
+    { scale: 42.75e-3, name: 'Width of a full size keyboard', sigFigs: 2 },
+    { scale: 1.75, name: 'Height of Michael Jackson', sigFigs: 3 },
+    { scale: 48, name: 'Height of the Colosseum', sigFigs: 2 },
+    { scale: 189, name: 'Width of the Colosseum', sigFigs: 3 },
+    { scale: 324, name: 'Height of the Eiffel Tower', sigFigs: 3 },
+    { scale: 2.737e3, name: 'Length of the Golden Gate Bridge', sigFigs: 4 },
+    { scale: 8849, name: 'Elevation at the top of Mount Everest', sigFigs: 2 },
+    { scale: 240e3, name: 'Widest part of the English Channel', sigFigs: 2 },
+    { scale: 3474.8e3, name: 'Diameter of the moon', sigFigs: 5 },
+    { scale: 12742e3, name: 'Diameter of the Earth', sigFigs: 5 },
+    { scale: 384400e3, name: 'Distance from the Earth to the moon', sigFigs: 4 },
+    { scale: 1.3927e9, name: 'Diameter of the sun', sigFigs: 5 },
+    { scale: 149597870700, name: 'Distance from the Earth to the sun', sigFigs: 5 },
+    { scale: 287527107485400, name: 'Diameter of the solar system', sigFigs: 4 },
+    { scale: 4.246*LY, name: 'Distance to Proxima Centauri', sigFigs: 4 },
+    { scale: 105700*LY, name: 'Diameter of the Milky Way', sigFigs: 4 },
+    { scale: 2.9e6*LY, name: 'Distance to the Andromeda Galaxy', sigFigs: 2 },
+    { scale: 65.23e6*LY, name: 'Distance to the Virgo Cluster', sigFigs: 4 },
+    { scale: 93.016e9*LY, name: 'Diameter of the observable universe', sigFigs: 5 },
+  ],
 });
 const volDisplay = new MetricDisplay('vol-out', {
   units: [
-    { scale: 1e-18, name: 'cubic micrometers' },
+    { scale: 1e-18, name: 'cubic microns' },
     { scale: 1e-9, name: 'cubic millimeters' },
     { scale: 1e-6, name: 'cubic centimeters' },
     { scale: 1e+0, name: 'cubic meters' },
     { scale: 1e+9, name: 'cubic kilometers' },
-    { scale: AU**3, name: 'cubic astronomical units' },
-    { scale: LY**3, name: 'cubic light years' },
-    { scale: (1e6*PC)**3, name: 'cubic megaparsecs' },
-    { scale: (1e9*PC)**3, name: 'cubic gigaparsecs' },
-    { scale: (1e12*PC)**3, name: 'cubic teraparsecs' },
   ],
 });
 const massDisplay = new MetricDisplay('mass-out', {
@@ -125,31 +163,22 @@ const massDisplay = new MetricDisplay('mass-out', {
     { scale: 1e+0, name: 'grams' },
     { scale: 1e+3, name: 'kilograms' },
     { scale: 1e+6, name: 'metric tons' },
-    { scale: 1e+21, name: 'metric petatons' },
-    { scale: SM, name: 'solar masses' },
-    { scale: 1e6*SM, name: 'mega-solar masses' },
-    { scale: 1e9*SM, name: 'giga-solar masses' },
-    { scale: 1e12*SM, name: 'tera-solar masses' },
-    { scale: 1e15*SM, name: 'peta-solar masses' },
-    { scale: 1e18*SM, name: 'exa-solar masses' },
-    { scale: 1e21*SM, name: 'zetta-solar masses' },
-    { scale: 1e24*SM, name: 'yotta-solar masses' },
   ],
   facts: [
-    { scale: 13e-3, name: 'Grain of sand', size: '13 milligrams' },
-    { scale: 4.5, name: 'Sheet of A4 paper', size: '4.5 grams' },
-    { scale: 62e3, name: 'Michael Jackson', size: '62 kilograms' },
-    { scale: 1.249e6, name: '2003 Honda Civic', size: '1.249 metric tons' },
-    { scale: 26700e6, name: 'Sydney Opera House', size: '26,700 metric tons' },
-    { scale: 162000e12, name: 'Mount Everest', size: '162,000 million metric tons' },
-    { scale: 73459e21, name: 'The moon', size: '73,459 metric petatons' },
-    { scale: 5970000e21, name: 'The Earth', size: '5.97 million metric petatons' },
-    { scale: 1898e27, name: 'Jupiter', size: '1,898 million metric petatons' },
-    { scale: SM, name: 'The Sun', size: '1 solar mass' },
-    { scale: 4.3e6*SM, name: 'The Milky Way\'s supermassive black hole', size: '4.3 million solar masses' },
-    { scale: 15.09e21*SM, name: 'The observable universe', size: '15 sextillion solar masses' },
-    { scale: 12.27e24*1e45*SM, name: '818,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000 times the mass of the observable universe', size: '12.27 quattuordecillion yotta-solar masses' },
-  ]
+    { scale: 13e-3, name: 'Grain of sand', sigFigs: 2 },
+    { scale: 4.5, name: 'Sheet of A4 paper', sigFigs: 2 },
+    { scale: 62e3, name: 'Michael Jackson', sigFigs: 2 },
+    { scale: 1.249e6, name: '2003 Honda Civic', sigFigs: 4 },
+    { scale: 26700e6, name: 'Sydney Opera House', sigFigs: 3 },
+    { scale: 162000e12, name: 'Mount Everest', sigFigs: 3 },
+    { scale: 73459e21, name: 'The Moon', sigFigs: 5 },
+    { scale: 5970000e21, name: 'The Earth', sigFigs: 3 },
+    { scale: 1898e27, name: 'Jupiter', sigFigs: 4 },
+    { scale: 1.98892e33, name: 'The Sun', sigFigs: 5 },
+    { scale: 8.552356e39, name: 'The Milky Way\'s supermassive black hole', sigFigs: 2 },
+    { scale: 3.00128028e55, name: 'The observable universe', sigFigs: 2 },
+    { scale: 2.44040484e103, name: '818,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000 times the mass of the observable universe', sigFigs: 4 },
+  ],
 });
 
 function findMin(items, keyGetter, defaultValue=null) {

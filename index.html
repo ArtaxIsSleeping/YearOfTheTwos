@@ -10,34 +10,42 @@
       }
       body {
         display: flex;
+        flex-direction: column;
         font-family: sans-serif;
+      }
+      label {
+        display: block;
       }
       .content {
         width: 780px;
-        height: 20em;
+        box-sizing: content-box;
         margin: auto;
       }
       #day-range {
-        width: 780px;
+        width: 100%;
+        margin: 0;
       }
       .metric {
-        margin-bottom: 15px;
+        margin-bottom: 7px;
       }
       .fact {
         margin-top: 3px;
         margin-left: 10px;
+        min-height: 2.2em;
         font-size: 90%;
         opacity: 80%;
       }
+      .fact-space {
+        margin-top: 3px;
+        min-height: 1.1em;
+      }
     </style>
-    <script defer src="calc.js?v=1"></script>
+    <script defer src="calc.js?v=2"></script>
   </head>
   <body>
     <div class="content">
       <div>
         <input type="range" id="day-range" min="0" max="365">
-      </div>
-      <div>
         <label>Day <input type="number" id="day-input" min="0" max="365" step="1"></label>
       </div>
       <h3>
@@ -54,6 +62,7 @@
       </div>
       <div id="vol-out" class="metric">
         Volume: <span class="amount"></span>
+        <div class="fact-space"></div>
       </div>
       <div id="mass-out" class="metric">
         Mass: <span class="amount"></span>
