@@ -69,39 +69,46 @@ class MetricDisplay {
     this.facts = facts;
   }
   
-  formatWithUnits(amount, units, defaultUnit, numFormatGetter) {
+  static selectIllionedUnit(amount, units, defaultUnit) {
     const unit = findLast(units, u => amount / u.scale >= 1, defaultUnit);
     if (!unit) return null;
     
-    let unitAmount = amount / unit.scale;
-    let unitName = unit.name;
-    
+    const unitAmount = amount / unit.scale;
     const illion = getIllion(unitAmount);
     if (illion) {
-      unitAmount /= illion.scale;
-      unitName = illion.name + ' ' + unitName;
+      return {
+        name: illion.name + ' ' + unit.name,
+        scale: illion.scale * unit.scale,
+      };
+    } else {
+      return unit;
     }
-    
-    const numFormat = numFormatGetter(unitAmount);
-    return `${unitAmount.toLocaleString([], numFormat)} ${unitName}`;
   }
   
-  formatAmount(amount, numFormatGetter) {
-    const amountFormatted = this.formatWithUnits(amount, this.units, this.units[0], numFormatGetter);
-    const extraAmountFormatted = this.formatWithUnits(amount, this.extraUnits, null, numFormatGetter);
-    if (extraAmountFormatted) {
-      return `${amountFormatted} (${extraAmountFormatted})`;
+  static formatWithUnit(amount, unit, numFormatGetter) {
+    const unitAmount = amount / unit.scale;
+    const numFormat = numFormatGetter(unitAmount);
+    return `${unitAmount.toLocaleString([], numFormat)} ${unit.name}`;
+  }
+  
+  static formatWithExtra(amount, unit, extraUnit, numFormatGetter) {
+    const formatted = MetricDisplay.formatWithUnit(amount, unit, numFormatGetter);
+    if (extraUnit) {
+      const extraFormatted = MetricDisplay.formatWithUnit(amount, extraUnit, numFormatGetter);
+      return `${formatted} (${extraFormatted})`;
     } else {
-      return amountFormatted;
+      return formatted;
     }
   }
 
   display(amount) {
-    this.amountOut.innerText = this.formatAmount(amount, standardNumFormatGetter);
+    const unit = MetricDisplay.selectIllionedUnit(amount, this.units, this.units[0]);
+    const extraUnit = MetricDisplay.selectIllionedUnit(amount, this.extraUnits, null);
+    this.amountOut.innerText = MetricDisplay.formatWithExtra(amount, unit, extraUnit, standardNumFormatGetter);
     const fact = findMin(this.facts, f => Math.abs(amount - f.scale));
     if (fact) {
       this.factNameOut.innerText = fact.name;
-      this.factSizeOut.innerText = this.formatAmount(fact.scale, () => ({
+      this.factSizeOut.innerText = MetricDisplay.formatWithExtra(fact.scale, unit, extraUnit, () => ({
         minimumSignificantDigits: fact.sigFigs,
         maximumSignificantDigits: fact.sigFigs,
       }));
@@ -177,7 +184,6 @@ const massDisplay = new MetricDisplay('mass-out', {
     { scale: 1.98892e33, name: 'The Sun', sigFigs: 5 },
     { scale: 8.552356e39, name: 'The Milky Way\'s supermassive black hole', sigFigs: 2 },
     { scale: 3.00128028e55, name: 'The observable universe', sigFigs: 2 },
-    { scale: 2.44040484e103, name: '818,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000 times the mass of the observable universe', sigFigs: 4 },
   ],
 });
 
